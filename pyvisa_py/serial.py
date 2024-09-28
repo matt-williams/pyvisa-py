@@ -67,10 +67,20 @@ class SerialSession(Session):
         return "via PySerial (%s)" % ver
 
     def after_parsing(self) -> None:
+        # If a host address and port was provided, use RFC 2217 to connect to it
+        # Otherwise, use the local serial port
+        if self.parsed.host_address != '0.0.0.0' and self.parsed.port != '0':
+            serial_url = f'rfc2217://{self.parsed.host_address}:{self.parsed.port}'
+            # Disable write timeout, as pySerial doesn't support it for RFC 2217
+            write_timeout = None
+        else:
+            serial_url = ("COM" if IS_WIN else "") + self.parsed.board
+            write_timeout = self.timeout
+
         self.interface = serial.serial_for_url(
-            ("COM" if IS_WIN else "") + self.parsed.board,
+            serial_url,
             timeout=self.timeout,
-            write_timeout=self.timeout,
+            write_timeout=write_timeout,
         )
 
         for name in (
